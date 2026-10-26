@@ -32,7 +32,8 @@ Settings › Experiments › Scrawl          // capture.pane
 │   a key is required; refused when it overlaps dictation, Voice Action, or paste
 ├── Screen Recording -> Allow asks macOS once, then opens its System Settings list;
 │   never part of onboarding (macOS also asks at the first capture)
-├── Transcriber (capture.transcriber) -> Parakeet (default) | Apple
+├── Transcriber (capture.transcriber) -> Parakeet (default) | Apple | OpenAI
+│   (fork: gpt-transcribe with acoustic word times, openai.md)
 ├── Captures folder (capture.folder, default Scrawl's) -> Reveal | choose another
 ├── Keep (capture.media_days / bundle_days) -> Scrawl's presets, or imported days
 ├── Scrawl.app running -> "Scrawl is running" card + Use Hex for captures

@@ -53,6 +53,7 @@ hex
 │   └── remove <term>              any case
 ├── capture start|stop|cancel|status  the `capture` build option + experiment (features/capture.md)
 ├── experiments list|enable|disable  edit ~/.config/hex/experiments; no running Hex (features/experiments.md)
+├── transcribe <wav> [--scrawl] | --prepare  fork: OpenAI with timed words; no running Hex (features/openai.md)
 ├── check-for-updates              check for an update now
 ├── launch-at-login [on|off]       report or change Launch at Login (installed Hex.app only)
 └── logs [--process] [-n N] [-f]   tail live.ndjson (or process.log); no running Hex needed

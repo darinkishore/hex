@@ -20,7 +20,11 @@ if [ "$#" -gt 1 ] || { [ "$#" -eq 1 ] && [ "$1" != prepare ]; }; then
   echo "Usage: $0 [prepare]" >&2
   exit 1
 fi
-# Public builds never carry the capture build option.
+# Public builds are never locally signed and never carry the capture build option.
+if [ -n "${HEX_LOCAL_SIGNING:-}" ]; then
+  echo "Unset HEX_LOCAL_SIGNING: personal builds are never released." >&2
+  exit 1
+fi
 if [ -n "${HEX_CAPTURE:-}" ]; then
   echo "Unset HEX_CAPTURE: the capture build option is never released." >&2
   exit 1

@@ -397,10 +397,11 @@ Model advertises streaming, GPU device             // dictate.streaming
     -> Feed any unfed remainder -> Finalize -> Final text
        ├── Stream failed, produced no text, or was fed > 250 ms past the clip
        │   -> Transcribe the whole clip offline (source=fallback)
-       ├── No final text within 1.5 s -> Abort the stream -> Whole clip
+       ├── No final text within 1.5 s (OpenAI Realtime: 10 s) -> Abort the stream -> Whole clip
        └── Model switched during the capture -> Stream closed -> Whole clip
   Short tap, Escape, chord discard, microphone failure -> Drop the stream
   Voice-delimited and programmatic captures (macOS) -> Whole clip after release
+  GPT Live Transcribe (fork) -> the stream is an OpenAI Realtime session (openai.md)
   Nothing is shown or pasted until the final text exists
   Picker -> "Streams" tag on catalog models whose artifact streams   // setup.model-card
   Picker -> Per-language Recommended/Fastest/Most accurate cards         // setup.model-routing

@@ -33,6 +33,8 @@ Agents can [read retained transcripts](transcript-cli.md) and
 the [vocabulary](vocabulary.md) is one, and macOS builds with the `capture`
 build option add [Captures](capture.md): Scrawl's capture engine hosted in Hex,
 with its shortcut, input, and Settings › Experiments › Scrawl pane.
+This fork adds [OpenAI transcription](openai.md): `gpt-live-transcribe` dictation,
+and `gpt-transcribe` with acoustic word times for Scrawl and captures.
 The other capabilities stay here until they need their own verification recipe.
 
 ## Get Ready

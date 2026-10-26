@@ -172,7 +172,9 @@ See [flags and the versioned JSON schema](docs/transcript-cli.md).
 
 ## Privacy And Local Data
 
-- Speech transcription and command recognition run locally.
+- Speech transcription and command recognition run locally. In this fork,
+  choosing an OpenAI model or transcriber sends that audio to OpenAI instead;
+  meetings and the local API never do ([OpenAI transcription](docs/features/openai.md)).
 - HEX does not save dictation audio by default.
 - History retains successfully pasted dictation and Voice Action text
   for seven days by default, including the local transcript, final text, and

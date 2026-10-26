@@ -5,6 +5,22 @@
 hex_codesign_identity() {
   team_id=$1
   identity=${VOICE_CONTROL_CODESIGN_IDENTITY:-}
+  # HEX_LOCAL_SIGNING=1 signs a personal build with your own Apple
+  # Development certificate, whose stable identity keeps macOS's permission
+  # grants across rebuilds. Never released: release-app.sh refuses it and
+  # validate-app.sh requires Developer ID.
+  if [ "${HEX_LOCAL_SIGNING:-}" = 1 ]; then
+    case "$identity" in
+      "Apple Development:"*)
+        printf '%s\n' "$identity"
+        return 0
+        ;;
+      *)
+        echo "HEX_LOCAL_SIGNING=1 needs VOICE_CONTROL_CODESIGN_IDENTITY set to an Apple Development identity." >&2
+        return 1
+        ;;
+    esac
+  fi
   if [ -z "$identity" ]; then
     identity=$(security find-identity -v -p codesigning | sed -n "s/.*\"\(Developer ID Application:.*($team_id)\)\"/\1/p" | head -1)
   fi
