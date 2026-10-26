@@ -118,6 +118,8 @@ mod moonshine_lab;
 mod onboarding;
 #[cfg(target_os = "macos")]
 mod onnx_runtime;
+#[cfg(target_os = "macos")]
+mod openai_transcription;
 mod opencode_catalog;
 #[cfg(target_os = "macos")]
 mod parakeet;
@@ -258,6 +260,21 @@ enum Command {
         /// Override the configured microphone preference order.
         #[arg(long)]
         device: Option<String>,
+    },
+    /// Transcribe a 16 kHz WAV with OpenAI's gpt-transcribe and time every
+    /// word acoustically (wav2vec2, as WhisperX does), using
+    /// ~/.config/hex/openai.json. Runs without the app.
+    Transcribe {
+        /// The WAV to transcribe.
+        #[arg(required_unless_present = "prepare")]
+        audio: Option<PathBuf>,
+        /// Print Scrawl's command-transcriber JSON, for Scrawl's
+        /// `transcribeCommand`.
+        #[arg(long)]
+        scrawl: bool,
+        /// Check the API key and install the alignment model, then exit.
+        #[arg(long, conflicts_with_all = ["audio", "scrawl"])]
+        prepare: bool,
     },
     /// Serve recorded meetings to agents over MCP (stdio). Read-only.
     Mcp {
@@ -493,6 +510,14 @@ fn main() -> Result<()> {
     if let Some(Command::Mcp { meetings_dir }) = &cli.command {
         return run_mcp(meetings_dir.clone());
     }
+    if let Some(Command::Transcribe {
+        audio,
+        scrawl,
+        prepare,
+    }) = &cli.command
+    {
+        return openai_transcription::run_cli(audio.as_deref(), *scrawl, *prepare);
+    }
     // Control commands talk to the running Hex; like the read commands, they
     // touch no data folder, log, or lock of their own.
     let cli = match cli.command {
@@ -710,6 +735,7 @@ fn main() -> Result<()> {
             Ok(())
         }
         Command::Mcp { .. }
+        | Command::Transcribe { .. }
         | Command::History(_)
         | Command::Meetings { .. }
         | Command::Experiments { .. }

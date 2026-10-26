@@ -380,6 +380,12 @@ pub fn experiments_file() -> Result<PathBuf> {
     Ok(user_config_dir()?.join("experiments"))
 }
 
+/// The per-user OpenAI transcription config (`crate::openai_transcription`).
+#[cfg(target_os = "macos")]
+pub fn openai_config_file() -> Result<PathBuf> {
+    Ok(user_config_dir()?.join("openai.json"))
+}
+
 /// The per-user config folder holding `hex.config.ts` and `experiments` on
 /// every OS: `~/.config/hex`, or `~/.config/hex-test` for `Hex Test.app`.
 fn user_config_dir() -> Result<PathBuf> {

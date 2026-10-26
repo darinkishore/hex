@@ -39,8 +39,8 @@ pub const SAMPLE_RATE: usize = 16_000;
 /// torchaudio's labels for `WAV2VEC2_ASR_BASE_960H`, lowercased as WhisperX
 /// keys its dictionary. The first is the CTC blank.
 const LABELS: [char; CLASSES] = [
-    '-', '|', 'e', 't', 'a', 'o', 'n', 'i', 'h', 's', 'r', 'd', 'l', 'u', 'm', 'w', 'c', 'f',
-    'g', 'y', 'p', 'b', 'v', 'k', '\'', 'x', 'j', 'q', 'z',
+    '-', '|', 'e', 't', 'a', 'o', 'n', 'i', 'h', 's', 'r', 'd', 'l', 'u', 'm', 'w', 'c', 'f', 'g',
+    'y', 'p', 'b', 'v', 'k', '\'', 'x', 'j', 'q', 'z',
 ];
 const CLASSES: usize = 29;
 const BLANK: usize = 0;
@@ -180,7 +180,11 @@ fn log_softmax_without_aux(logits: &[f32], frames: usize) -> Vec<f32> {
             .filter(|(class, _)| !REMOVED_CLASSES.contains(class))
             .map(|(_, logit)| f64::from(*logit));
         let max = kept.clone().fold(f64::NEG_INFINITY, f64::max);
-        let log_sum = kept.clone().map(|logit| (logit - max).exp()).sum::<f64>().ln();
+        let log_sum = kept
+            .clone()
+            .map(|logit| (logit - max).exp())
+            .sum::<f64>()
+            .ln();
         values.extend(kept.map(|logit| (logit - max - log_sum) as f32));
     }
     values
@@ -301,7 +305,10 @@ fn align_segment(
         samples.resize(MIN_SEGMENT_SAMPLES, 0.0);
     }
     let emission = model.emissions(&samples)?;
-    ensure!(emission.frames > 0, "the alignment model returned no frames");
+    ensure!(
+        emission.frames > 0,
+        "the alignment model returned no frames"
+    );
     // 3. Tokens, with a wildcard column (each frame's best non-blank class)
     // for characters outside the alphabet.
     let index_of = |character: char| LABELS.iter().position(|label| *label == character);

@@ -47,8 +47,7 @@ impl Emissions for Recorded {
 fn load(name: &str) -> (Fixture, Recorded) {
     let directory = fixtures();
     let fixture: Fixture =
-        serde_json::from_slice(&fs::read(directory.join(format!("{name}.json"))).unwrap())
-            .unwrap();
+        serde_json::from_slice(&fs::read(directory.join(format!("{name}.json"))).unwrap()).unwrap();
     let recorded = fixture
         .segments
         .iter()
@@ -94,9 +93,21 @@ fn recorded_emissions_reproduce_dusks_whisperx_alignment_exactly() {
         assert_eq!(words.len(), fixture.words.len(), "{name}");
         for (word, expected) in words.iter().zip(&fixture.words) {
             assert_eq!(word.text, expected.text, "{name}");
-            assert_eq!(word.start.to_bits(), expected.start.to_bits(), "{name} {word:?}");
-            assert_eq!(word.end.to_bits(), expected.end.to_bits(), "{name} {word:?}");
-            assert_eq!(word.score.to_bits(), expected.score.to_bits(), "{name} {word:?}");
+            assert_eq!(
+                word.start.to_bits(),
+                expected.start.to_bits(),
+                "{name} {word:?}"
+            );
+            assert_eq!(
+                word.end.to_bits(),
+                expected.end.to_bits(),
+                "{name} {word:?}"
+            );
+            assert_eq!(
+                word.score.to_bits(),
+                expected.score.to_bits(),
+                "{name} {word:?}"
+            );
         }
     }
 }
@@ -134,7 +145,10 @@ fn more_characters_than_frames_fail_instead_of_guessing() {
         text: "far too many characters".into(),
     };
     let error = align(&mut Constant(3), &pcm, &[segment]).unwrap_err();
-    assert!(format!("{error:#}").contains("backtrack failed"), "{error:#}");
+    assert!(
+        format!("{error:#}").contains("backtrack failed"),
+        "{error:#}"
+    );
 }
 
 #[test]
@@ -152,7 +166,11 @@ fn empty_transcripts_are_skipped_and_nothing_aligns_to_nothing() {
             text: String::new(),
         },
     ];
-    assert!(align(&mut Constant(50), &pcm, &segments).unwrap().is_empty());
+    assert!(
+        align(&mut Constant(50), &pcm, &segments)
+            .unwrap()
+            .is_empty()
+    );
 }
 
 #[test]
@@ -318,7 +336,10 @@ fn the_onnx_model_reproduces_dusks_alignment() {
                 (&expected.text, expected.start, expected.end),
                 "{name}"
             );
-            assert!((word.score - expected.score).abs() <= 0.002, "{name} {word:?}");
+            assert!(
+                (word.score - expected.score).abs() <= 0.002,
+                "{name} {word:?}"
+            );
         }
     }
 }
