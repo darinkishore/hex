@@ -54,8 +54,10 @@ fn load(name: &str) -> (Fixture, Recorded) {
         .map(|segment| {
             let bytes = fs::read(directory.join(&segment.emissions)).unwrap();
             let values: Vec<f32> = bytes
-                .chunks_exact(4)
-                .map(|chunk| f32::from_le_bytes(chunk.try_into().unwrap()))
+                .as_chunks::<4>()
+                .0
+                .iter()
+                .map(|chunk| f32::from_le_bytes(*chunk))
                 .collect();
             let slice = (segment.end * 16_000.0) as usize - (segment.start * 16_000.0) as usize;
             (

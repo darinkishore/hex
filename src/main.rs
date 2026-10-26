@@ -119,6 +119,8 @@ mod onboarding;
 #[cfg(target_os = "macos")]
 mod onnx_runtime;
 #[cfg(target_os = "macos")]
+mod openai_realtime;
+#[cfg(target_os = "macos")]
 mod openai_transcription;
 mod opencode_catalog;
 #[cfg(target_os = "macos")]

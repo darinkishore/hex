@@ -60,6 +60,9 @@ fn transcriber_description(transcriber: CaptureTranscriber) -> &'static str {
             tr("The model Hex dictates with, with a time for every word")
         }
         CaptureTranscriber::Apple => tr("Apple's speech recognizer, as Scrawl uses"),
+        CaptureTranscriber::OpenAi => {
+            tr("OpenAI's gpt-transcribe, with every word timed on this Mac")
+        }
     }
 }
 
@@ -193,7 +196,7 @@ fn transcriber_row(ui: &Ui, p: Paint) -> El {
         segmented(
             p,
             "capture-transcriber-choice",
-            &["Parakeet", "Apple"],
+            &["Parakeet", "Apple", "OpenAI"],
             selected,
             |ui: &mut Ui, index| {
                 let transcriber = CaptureTranscriber::ALL[index];

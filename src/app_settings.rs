@@ -1088,11 +1088,15 @@ pub enum CaptureTranscriber {
     Parakeet,
     /// Apple's speech recognizer, as Scrawl uses by default.
     Apple,
+    /// OpenAI's `gpt-transcribe`, every word timed on this Mac by forced
+    /// alignment, as Dusk's Voxtype does for Scrawl.
+    #[serde(rename = "openai")]
+    OpenAi,
 }
 
 #[cfg(hex_capture)]
 impl CaptureTranscriber {
-    pub const ALL: [Self; 2] = [Self::Parakeet, Self::Apple];
+    pub const ALL: [Self; 3] = [Self::Parakeet, Self::Apple, Self::OpenAi];
 }
 
 pub use crate::text_replacements::TextReplacement;
@@ -1245,6 +1249,20 @@ impl Default for AppSettings {
 /// language, so first-run setup can download it without asking.
 fn default_transcription() -> TranscriptionSelection {
     crate::transcription_models::recommended_selection(&crate::desktop_i18n::preferred_language())
+}
+
+/// Whether Scrawl's `transcribeCommand` is `hex transcribe --scrawl`, which
+/// is the OpenAI transcriber.
+#[cfg(hex_capture)]
+fn runs_hex_transcribe(command: Option<&serde_json::Value>) -> bool {
+    let Some(argv) = command.and_then(serde_json::Value::as_array) else {
+        return false;
+    };
+    let argv: Vec<&str> = argv.iter().filter_map(serde_json::Value::as_str).collect();
+    argv.first()
+        .is_some_and(|program| std::path::Path::new(program).file_name() == Some("hex".as_ref()))
+        && argv.get(1) == Some(&"transcribe")
+        && argv.contains(&"--scrawl")
 }
 
 impl AppSettings {
@@ -1415,12 +1433,15 @@ impl AppSettings {
                 .ok()
                 .filter(serde_json::Value::is_object)
         }) {
-            if config
+            match config
                 .get("transcriber")
                 .and_then(serde_json::Value::as_str)
-                == Some("apple")
             {
-                self.capture.transcriber = CaptureTranscriber::Apple;
+                Some("apple") => self.capture.transcriber = CaptureTranscriber::Apple,
+                Some("command") if runs_hex_transcribe(config.get("transcribeCommand")) => {
+                    self.capture.transcriber = CaptureTranscriber::OpenAi;
+                }
+                _ => {}
             }
             let home = dirs::home_dir();
             if let Some(folder) = config
@@ -2172,6 +2193,44 @@ pub(crate) fn migrate_legacy_settings(path: &std::path::Path) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[cfg(hex_capture)]
+    #[test]
+    fn scrawls_transcriber_imports_as_the_matching_capture_transcriber() {
+        let import = |config: &str| {
+            let mut settings: AppSettings = serde_json::from_str("{}").unwrap();
+            settings.import_scrawl_settings(Some(config.as_bytes()), None);
+            settings.capture.transcriber
+        };
+        assert_eq!(
+            import(r#"{"transcriber":"apple"}"#),
+            CaptureTranscriber::Apple
+        );
+        assert_eq!(
+            import(r#"{"transcriber":"hex"}"#),
+            CaptureTranscriber::Parakeet
+        );
+        // Scrawl transcribing through `hex transcribe --scrawl` is OpenAI.
+        assert_eq!(
+            import(
+                r#"{"transcriber":"command","transcribeCommand":
+                ["/Applications/Hex.app/Contents/MacOS/hex","transcribe","--scrawl","{audio}"]}"#
+            ),
+            CaptureTranscriber::OpenAi
+        );
+        assert_eq!(
+            import(
+                r#"{"transcriber":"command","transcribeCommand":["/usr/local/bin/whisper-scrawl","{audio}"]}"#
+            ),
+            CaptureTranscriber::Parakeet
+        );
+        assert_eq!(
+            import(r#"{"transcriber":"command"}"#),
+            CaptureTranscriber::Parakeet
+        );
+        let saved: CaptureTranscriber = serde_json::from_str(r#""openai""#).unwrap();
+        assert_eq!(saved, CaptureTranscriber::OpenAi);
+    }
 
     #[test]
     fn the_setting_the_experiment_or_an_installed_driver_turns_the_voice_filter_on() {

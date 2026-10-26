@@ -243,6 +243,8 @@ const TRANSLATIONS: &[(&str, [&str; 5])] = &[
     #[cfg(hex_capture)]
     ("Apple's speech recognizer, as Scrawl uses", ["Rozpoznawanie mowy Apple, jak w Scrawl", "Apple 语音识别，与 Scrawl 相同", "Scrawl と同じ Apple の音声認識", "Apples Spracherkennung, wie Scrawl sie nutzt", "El reconocimiento de voz de Apple, como en Scrawl"]),
     #[cfg(hex_capture)]
+    ("OpenAI's gpt-transcribe, with every word timed on this Mac", ["gpt-transcribe od OpenAI, z czasem każdego słowa wyznaczanym na tym Macu", "OpenAI 的 gpt-transcribe，每个词的时间在这台 Mac 上标注", "OpenAI の gpt-transcribe。単語ごとの時刻はこの Mac で付けます", "OpenAIs gpt-transcribe, jedes Wort auf diesem Mac zeitlich ausgerichtet", "gpt-transcribe de OpenAI, con el tiempo de cada palabra calculado en este Mac"]),
+    #[cfg(hex_capture)]
     ("Video for 7 days", ["Wideo przez 7 dni", "视频保留 7 天", "ビデオは 7 日間", "Video 7 Tage", "Vídeo durante 7 días"]),
     #[cfg(hex_capture)]
     ("Video for 30 days", ["Wideo przez 30 dni", "视频保留 30 天", "ビデオは 30 日間", "Video 30 Tage", "Vídeo durante 30 días"]),
@@ -691,6 +693,12 @@ const TRANSLATIONS: &[(&str, [&str; 5])] = &[
     ("5 languages", ["5 języków", "5 种语言", "5 言語", "5 Sprachen", "5 idiomas"]),
     ("English", ["Angielski", "英语", "英語", "Englisch", "Inglés"]),
     ("System locales", ["Języki systemu", "系统区域设置", "システムのロケール", "Systemsprachen", "Idiomas del sistema"]),
+    ("Many languages", ["Wiele języków", "多种语言", "多数の言語", "Viele Sprachen", "Muchos idiomas"]),
+    ("OpenAI API", ["API OpenAI", "OpenAI API", "OpenAI API", "OpenAI-API", "API de OpenAI"]),
+    ("Streaming", ["Strumieniowo", "流式", "ストリーミング", "Streaming", "En streaming"]),
+    ("On release", ["Po zwolnieniu", "松开后", "キーを離したとき", "Beim Loslassen", "Al soltar"]),
+    ("Streams to OpenAI while you speak", ["Przesyła dźwięk do OpenAI podczas mówienia", "说话时实时发送到 OpenAI", "話している間に OpenAI へ送信します", "Streamt beim Sprechen zu OpenAI", "Envía el audio a OpenAI mientras hablas"]),
+    ("Sends each clip to OpenAI", ["Wysyła każde nagranie do OpenAI", "将每段录音发送到 OpenAI", "録音ごとに OpenAI へ送信します", "Sendet jede Aufnahme an OpenAI", "Envía cada grabación a OpenAI"]),
     ("Apple managed", ["Zarządzany przez Apple", "由 Apple 管理", "Apple が管理", "Von Apple verwaltet", "Gestionado por Apple"]),
     ("English benchmark", ["Test dla angielskiego", "英语基准测试", "英語ベンチマーク", "Englisch-Benchmark", "Prueba en inglés"]),
     ("Mandarin benchmark", ["Test dla mandaryńskiego", "普通话基准测试", "中国語（普通話）ベンチマーク", "Mandarin-Benchmark", "Prueba en mandarín"]),

@@ -34,6 +34,10 @@ pub(crate) type Background = Box<dyn FnOnce(Option<&mut Model>) + Send>;
 /// A healthy finish decodes at most a couple of seconds of buffered audio.
 /// Past this the stream is aborted and the clip is transcribed offline.
 const STREAM_FINISH_DEADLINE: Duration = Duration::from_millis(1_500);
+/// A remote stream (OpenAI Realtime) finishes over the network: its last
+/// frames, the commit, and the model settling the tail. Past this the clip
+/// is transcribed offline instead.
+const REMOTE_STREAM_FINISH_DEADLINE: Duration = Duration::from_secs(10);
 /// Audio fed past the clip's trimmed end (a release handled late) that the
 /// stream may still keep. Beyond it, the offline clip is authoritative.
 const MAX_OVERFED_SAMPLES: usize = 16_000 / 4;
@@ -56,6 +60,7 @@ const SHUTDOWN_DEADLINE: Duration = Duration::from_secs(10);
 #[derive(Clone, Copy)]
 struct Deadlines {
     stream_finish: Duration,
+    remote_stream_finish: Duration,
     job: Duration,
     job_seconds_per_audio_second: u32,
     shutdown: Duration,
@@ -64,6 +69,7 @@ struct Deadlines {
 impl Deadlines {
     const PRODUCTION: Self = Self {
         stream_finish: STREAM_FINISH_DEADLINE,
+        remote_stream_finish: REMOTE_STREAM_FINISH_DEADLINE,
         job: JOB_DEADLINE,
         job_seconds_per_audio_second: JOB_SECONDS_PER_AUDIO_SECOND,
         shutdown: SHUTDOWN_DEADLINE,
@@ -204,6 +210,8 @@ pub struct TranscriptionEngine {
     requests: Arc<AtomicU64>,
     /// Whether the loaded model can stream on its device.
     streams: Arc<AtomicBool>,
+    /// Whether its streams go over the network (OpenAI Realtime).
+    remote: Arc<AtomicBool>,
     #[cfg(target_os = "macos")]
     held: Held,
     next_stream: AtomicU64,
@@ -219,6 +227,8 @@ type Held = Arc<Mutex<Option<crate::transcription_models::TranscriptionSelection
 /// then either [`TranscriptionEngine::finish`] or drop it to cancel.
 pub struct LiveStream {
     id: u64,
+    /// A network stream, with its longer finish deadline.
+    remote: bool,
     cancel: CancelToken,
     fed: usize,
     finished: bool,
@@ -325,7 +335,8 @@ impl PendingTranscript {
 
 impl TranscriptionEngine {
     pub fn start(model: Model) -> Result<Self> {
-        let streams = Arc::new(AtomicBool::new(model.stream_options().is_some()));
+        let streams = Arc::new(AtomicBool::new(can_stream(&model)));
+        let remote = Arc::new(AtomicBool::new(streams_remotely(&model)));
         let (commands, receiver) = mpsc::channel();
         let requests = Arc::new(AtomicU64::new(0));
         let running = Running::default();
@@ -337,6 +348,7 @@ impl TranscriptionEngine {
             running: running.clone(),
             stalled: stalled.clone(),
             streams: streams.clone(),
+            remote: remote.clone(),
             requests: requests.clone(),
             #[cfg(target_os = "macos")]
             held: held.clone(),
@@ -350,6 +362,7 @@ impl TranscriptionEngine {
             stalled,
             requests,
             streams,
+            remote,
             #[cfg(target_os = "macos")]
             held,
             next_stream: AtomicU64::new(0),
@@ -369,6 +382,7 @@ impl TranscriptionEngine {
             stalled: Arc::default(),
             requests: Arc::default(),
             streams: Arc::new(AtomicBool::new(true)),
+            remote: Arc::default(),
             #[cfg(target_os = "macos")]
             held: Held::default(),
             next_stream: AtomicU64::new(0),
@@ -408,6 +422,7 @@ impl TranscriptionEngine {
             .ok()?;
         Some(LiveStream {
             id,
+            remote: self.remote.load(Ordering::Acquire),
             cancel,
             fed: 0,
             finished: false,
@@ -438,18 +453,25 @@ impl TranscriptionEngine {
         clip: Vec<f32>,
         offline: Offline,
     ) -> Result<PendingTranscript> {
-        let (stream, stream_cancel) = match stream {
+        let (stream, stream_cancel, stream_finish) = match stream {
             Some(mut stream) => {
                 stream.finished = true;
-                (Some(stream.id), Some(stream.cancel.clone()))
+                let deadline = if stream.remote {
+                    self.deadlines.remote_stream_finish
+                } else {
+                    self.deadlines.stream_finish
+                };
+                (Some(stream.id), Some(stream.cancel.clone()), deadline)
             }
-            None => (None, None),
+            None => (None, None, self.deadlines.stream_finish),
         };
-        self.request(clip.len(), stream_cancel, |job| Command::Finish {
-            stream,
-            clip,
-            offline,
-            job,
+        self.request(clip.len(), stream_cancel, stream_finish, |job| {
+            Command::Finish {
+                stream,
+                clip,
+                offline,
+                job,
+            }
         })
     }
 
@@ -458,10 +480,8 @@ impl TranscriptionEngine {
     /// first. Background work sent before it yields, as to a finish.
     #[cfg_attr(not(hex_capture), allow(dead_code))]
     pub fn foreground(&self, clip: Vec<f32>, offline: Offline) -> Result<PendingTranscript> {
-        self.request(clip.len(), None, |job| Command::Foreground {
-            clip,
-            offline,
-            job,
+        self.request(clip.len(), None, self.deadlines.stream_finish, |job| {
+            Command::Foreground { clip, offline, job }
         })
     }
 
@@ -469,6 +489,7 @@ impl TranscriptionEngine {
         &self,
         samples: usize,
         stream_cancel: Option<CancelToken>,
+        stream_finish: Duration,
         command: impl FnOnce(Job) -> Command,
     ) -> Result<PendingTranscript> {
         let (reply, receiver) = mpsc::channel();
@@ -487,7 +508,7 @@ impl TranscriptionEngine {
             stream_cancel,
             stalled: self.stalled.clone(),
             job,
-            stream_finish: self.deadlines.stream_finish,
+            stream_finish,
         })
     }
 
@@ -565,6 +586,25 @@ impl TranscriptionEngine {
     }
 }
 
+/// Whether `model` can stream captures: a GGUF model on a device that
+/// streams, or (macOS) OpenAI's live model.
+fn can_stream(model: &Model) -> bool {
+    #[cfg(target_os = "macos")]
+    return model.can_stream();
+    #[cfg(not(target_os = "macos"))]
+    model.stream_options().is_some()
+}
+
+fn streams_remotely(model: &Model) -> bool {
+    #[cfg(target_os = "macos")]
+    return model.streams_remotely();
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = model;
+        false
+    }
+}
+
 #[cfg(target_os = "macos")]
 static SHARED: std::sync::Mutex<std::sync::Weak<TranscriptionEngine>> =
     std::sync::Mutex::new(std::sync::Weak::new());
@@ -594,6 +634,7 @@ struct Worker {
     running: Running,
     stalled: Arc<AtomicBool>,
     streams: Arc<AtomicBool>,
+    remote: Arc<AtomicBool>,
     requests: Arc<AtomicU64>,
     #[cfg(target_os = "macos")]
     held: Held,
@@ -646,8 +687,7 @@ impl Worker {
                 }
                 Command::Run(work) => {
                     work(&mut self.model);
-                    self.streams
-                        .store(self.model.stream_options().is_some(), Ordering::Release);
+                    self.publish_streaming();
                 }
                 Command::Background { generation, work } => {
                     let current = self.requests.load(Ordering::Acquire) == generation;
@@ -660,6 +700,14 @@ impl Worker {
             #[cfg(target_os = "macos")]
             self.publish_selection();
         }
+    }
+
+    /// Whether the model streams, and how, after it may have changed.
+    fn publish_streaming(&self) {
+        self.streams
+            .store(can_stream(&self.model), Ordering::Release);
+        self.remote
+            .store(streams_remotely(&self.model), Ordering::Release);
     }
 
     /// Any command may load or switch the model (a dictation job activates
@@ -700,6 +748,25 @@ impl Worker {
         commands: &Receiver<Command>,
         next: &mut VecDeque<Command>,
     ) {
+        #[cfg(target_os = "macos")]
+        if let Some(settings) = self.model.realtime() {
+            let settings = match settings {
+                Ok(settings) => settings,
+                Err(error) => {
+                    tracing::warn!("could not begin an OpenAI Realtime stream: {error:#}");
+                    return;
+                }
+            };
+            self.running.enter(cancel);
+            let begun = Instant::now();
+            let mut stats = FeedStats::default();
+            let mut stream =
+                crate::openai_realtime::RealtimeStream::start(settings, cancel.clone());
+            let ended = drive_stream(id, &mut stream, commands, &self.stalled, next, &mut stats);
+            drop(stream);
+            self.settle_stream(Ok(ended), begun, stats, next);
+            return;
+        }
         let Some(options) = self.model.stream_options().cloned() else {
             return;
         };
@@ -707,9 +774,24 @@ impl Worker {
         let begun = Instant::now();
         let mut stats = FeedStats::default();
         let stalled = &self.stalled;
-        let ended = self.model.with_stream(&options, cancel, |stream| {
-            drive_stream(id, stream, commands, stalled, next, &mut stats)
-        });
+        let ended = self
+            .model
+            .with_stream(&options, cancel, |stream| {
+                drive_stream(id, stream, commands, stalled, next, &mut stats)
+            })
+            .map_err(|error| error.to_string());
+        self.settle_stream(ended, begun, stats, next);
+    }
+
+    /// Answers a stream's finish: its text, or the clip offline when the
+    /// stream was unusable.
+    fn settle_stream(
+        &mut self,
+        ended: Result<StreamEnd, String>,
+        begun: Instant,
+        stats: FeedStats,
+        next: &mut VecDeque<Command>,
+    ) {
         let FeedStats { feed_ms, feeds } = stats;
         match ended {
             Ok(StreamEnd::Finished {
@@ -765,8 +847,7 @@ impl Worker {
                 finish_ms: started.elapsed().as_millis() as u64,
             });
         // An offline run may switch the model (macOS activates a selection).
-        self.streams
-            .store(self.model.stream_options().is_some(), Ordering::Release);
+        self.publish_streaming();
         job.finish(result);
     }
 }
@@ -775,7 +856,7 @@ impl Worker {
 /// The clip is authoritative: a stream fed well past its trimmed end, or one
 /// that produced nothing, is reported unusable so the caller falls back.
 /// The live stream as the worker drives it.
-trait StreamFeed {
+pub(crate) trait StreamFeed {
     fn feed(&mut self, samples: &[f32]) -> Result<(), String>;
     fn finalize(&mut self) -> Result<String, String>;
 }
@@ -925,6 +1006,35 @@ mod tests {
         ));
     }
 
+    #[test]
+    fn a_remote_stream_gets_the_longer_finish_deadline() {
+        let (engine, _commands) = TranscriptionEngine::for_test();
+        let local = engine.begin().unwrap();
+        let pending = engine
+            .finish_with(
+                Some(local),
+                vec![0.0; 8],
+                Box::new(|_, _| Ok(String::new())),
+            )
+            .unwrap();
+        assert_eq!(pending.stream_finish, STREAM_FINISH_DEADLINE);
+        engine.remote.store(true, Ordering::Release);
+        let remote = engine.begin().unwrap();
+        let pending = engine
+            .finish_with(
+                Some(remote),
+                vec![0.0; 8],
+                Box::new(|_, _| Ok(String::new())),
+            )
+            .unwrap();
+        assert_eq!(pending.stream_finish, REMOTE_STREAM_FINISH_DEADLINE);
+        // Without a stream there is nothing to wait for.
+        let pending = engine
+            .finish_with(None, vec![0.0; 8], Box::new(|_, _| Ok(String::new())))
+            .unwrap();
+        assert!(pending.stream_cancel.is_none());
+    }
+
     #[derive(Default)]
     struct FakeStream {
         fed: Vec<f32>,
@@ -995,6 +1105,7 @@ mod tests {
 
     const SHORT: Deadlines = Deadlines {
         stream_finish: Duration::from_millis(50),
+        remote_stream_finish: Duration::from_millis(80),
         job: Duration::from_millis(100),
         job_seconds_per_audio_second: 0,
         shutdown: Duration::from_millis(100),

@@ -173,7 +173,7 @@ impl Emissions for Aligner {
 /// them, computed in f64 and stored as torch's f32.
 fn log_softmax_without_aux(logits: &[f32], frames: usize) -> Vec<f32> {
     let mut values = Vec::with_capacity(frames * CLASSES);
-    for row in logits.chunks_exact(MODEL_CLASSES).take(frames) {
+    for row in logits.as_chunks::<MODEL_CLASSES>().0.iter().take(frames) {
         let kept = row
             .iter()
             .enumerate()
@@ -315,7 +315,7 @@ fn align_segment(
     let wildcard = clean.chars().any(|character| index_of(character).is_none());
     let (columns, emission) = if wildcard {
         let mut extended = Vec::with_capacity(emission.frames * (CLASSES + 1));
-        for row in emission.values.chunks_exact(CLASSES) {
+        for row in emission.values.as_chunks::<CLASSES>().0 {
             extended.extend_from_slice(row);
             extended.push(row[1..].iter().copied().fold(f32::NEG_INFINITY, f32::max));
         }
@@ -357,10 +357,10 @@ fn align_segment(
         } else {
             current.text.push(*character);
         }
-        if index + 1 == text.len() || text[index + 1] == ' ' {
-            if let Some(word) = std::mem::take(&mut current).finish() {
-                words.push(word);
-            }
+        if (index + 1 == text.len() || text[index + 1] == ' ')
+            && let Some(word) = std::mem::take(&mut current).finish()
+        {
+            words.push(word);
         }
     }
     Ok(words)

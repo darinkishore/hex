@@ -691,3 +691,16 @@ fn writer_fills_a_capture_gap_with_silence_and_records_it() {
     assert_eq!(u64::from(wav.len()), stats.system.samples);
     fs::remove_dir_all(directory).unwrap();
 }
+
+#[test]
+fn meetings_refuse_a_dictation_model_that_uploads_audio() {
+    use crate::transcription_models::{TranscriptionModelId, definition};
+    for id in [
+        TranscriptionModelId::OpenAiLiveTranscribe,
+        TranscriptionModelId::OpenAiTranscribe,
+    ] {
+        let error = refuse_cloud_model(definition(id)).unwrap_err().to_string();
+        assert!(error.contains("transcribe on this Mac"), "{error}");
+    }
+    assert!(refuse_cloud_model(definition(TranscriptionModelId::ParakeetUnifiedEnglish)).is_ok());
+}

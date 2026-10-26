@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::apple_speech::AppleSpeech;
 use crate::dictation::{DictationProtocol, VoiceTranscript};
+use crate::openai_transcription::OpenAiTranscriber;
 use crate::parakeet::Parakeet;
 use crate::transcription_models::{
     ModelRuntime, TranscriptionModelId, TranscriptionSelection, validate,
@@ -13,6 +14,7 @@ const UNIFIED_ENGLISH_TRAILING_SILENCE_SAMPLES: usize = 3_200;
 pub enum Transcriber {
     Gguf(Box<Parakeet>),
     AppleSpeech(AppleSpeech),
+    OpenAi(OpenAiTranscriber),
 }
 
 #[derive(Default)]
@@ -50,6 +52,9 @@ impl Transcriber {
                 .map(Box::new)
                 .map(Self::Gguf),
             ModelRuntime::AppleSpeech => AppleSpeech::load(selection).map(Self::AppleSpeech),
+            ModelRuntime::OpenAi(model) => {
+                OpenAiTranscriber::load(selection, model).map(Self::OpenAi)
+            }
         }
     }
 
@@ -57,15 +62,17 @@ impl Transcriber {
         match self {
             Self::Gguf(model) => model.matches_selection(selection),
             Self::AppleSpeech(model) => model.matches_selection(selection),
+            Self::OpenAi(model) => model.matches_selection(selection),
         }
     }
 
     /// Brings an idle GGUF model's weights back before audio arrives (see
-    /// [`Parakeet::prewarm`]). Apple Speech has no weights of Hex's to warm.
+    /// [`Parakeet::prewarm`]). Apple Speech and OpenAI have no weights of
+    /// Hex's to warm.
     pub fn prewarm(&mut self) -> Result<()> {
         match self {
             Self::Gguf(model) => model.prewarm(),
-            Self::AppleSpeech(_) => Ok(()),
+            Self::AppleSpeech(_) | Self::OpenAi(_) => Ok(()),
         }
     }
 
@@ -78,6 +85,7 @@ impl Transcriber {
                 model.transcribe(&samples)
             }
             Self::AppleSpeech(model) => model.transcribe(&samples).map(|result| result.text),
+            Self::OpenAi(model) => model.transcribe(&samples),
         }
     }
 
@@ -94,6 +102,9 @@ impl Transcriber {
             Self::AppleSpeech(model) => model
                 .transcribe(&samples)
                 .map(|result| VoiceTranscript::heard(result.text, protocol)),
+            Self::OpenAi(model) => model
+                .transcribe(&samples)
+                .map(|text| VoiceTranscript::heard(text, protocol)),
         }
     }
 
@@ -128,6 +139,12 @@ impl Transcriber {
                     })
             }
             Self::AppleSpeech(model) => model.transcribe(&samples),
+            // Segment and word times need the forced aligner, which the
+            // capture transcriber runs itself; nothing else may send this
+            // audio to OpenAI.
+            Self::OpenAi(_) => Err(color_eyre::eyre::eyre!(
+                "OpenAI dictation has no segment timing; choose a local model"
+            )),
         }
     }
 }
@@ -161,6 +178,25 @@ impl WarmTranscriber {
     pub(crate) fn gguf_selection(&self) -> Option<&TranscriptionSelection> {
         match &self.active {
             Some(Transcriber::Gguf(model)) => model.selection(),
+            _ => None,
+        }
+    }
+
+    /// Whether the warm model streams captures: a GGUF model on a device that
+    /// streams, or OpenAI's live model.
+    pub(crate) fn can_stream(&self) -> bool {
+        self.stream_options().is_some() || self.streams_remotely()
+    }
+
+    /// Whether its streams go to OpenAI Realtime.
+    pub(crate) fn streams_remotely(&self) -> bool {
+        matches!(&self.active, Some(Transcriber::OpenAi(model)) if model.streams())
+    }
+
+    /// What a Realtime stream needs, when the warm model streams there.
+    pub(crate) fn realtime(&self) -> Option<Result<crate::openai_realtime::RealtimeSettings>> {
+        match &self.active {
+            Some(Transcriber::OpenAi(model)) if model.streams() => Some(model.realtime_settings()),
             _ => None,
         }
     }

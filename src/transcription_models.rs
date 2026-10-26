@@ -25,6 +25,10 @@ pub enum TranscriptionModelId {
     SenseVoiceSmall,
     CohereTranscribe,
     AppleSpeech,
+    #[serde(rename = "openai_gpt_live_transcribe")]
+    OpenAiLiveTranscribe,
+    #[serde(rename = "openai_gpt_transcribe")]
+    OpenAiTranscribe,
 }
 
 impl TranscriptionModelId {
@@ -38,6 +42,8 @@ impl TranscriptionModelId {
             Self::SenseVoiceSmall => "sense_voice_small",
             Self::CohereTranscribe => "cohere_transcribe",
             Self::AppleSpeech => "apple_speech",
+            Self::OpenAiLiveTranscribe => "openai_gpt_live_transcribe",
+            Self::OpenAiTranscribe => "openai_gpt_transcribe",
         }
     }
 }
@@ -55,6 +61,8 @@ impl FromStr for TranscriptionModelId {
             "sense_voice_small" => Ok(Self::SenseVoiceSmall),
             "cohere_transcribe" => Ok(Self::CohereTranscribe),
             "apple_speech" => Ok(Self::AppleSpeech),
+            "openai_gpt_live_transcribe" => Ok(Self::OpenAiLiveTranscribe),
+            "openai_gpt_transcribe" => Ok(Self::OpenAiTranscribe),
             _ => Err(eyre!("unknown transcription model: {value}")),
         }
     }
@@ -157,6 +165,19 @@ pub struct ModelDefinition {
 pub enum ModelRuntime {
     Gguf(&'static GgufArtifact),
     AppleSpeech,
+    /// OpenAI's API (macOS), with the key and config in
+    /// `crate::openai_transcription`.
+    OpenAi(OpenAiModel),
+}
+
+/// Which OpenAI transcription model dictation uses.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum OpenAiModel {
+    /// `gpt-live-transcribe`, streamed over Realtime while the shortcut is
+    /// held, with `gpt-transcribe` for a stream that fails.
+    Live,
+    /// `gpt-transcribe` on each finished clip.
+    File,
 }
 
 pub struct GgufArtifact {
@@ -171,7 +192,17 @@ pub struct GgufArtifact {
 
 impl ModelDefinition {
     pub const fn available(&self) -> bool {
-        !matches!(self.runtime, ModelRuntime::AppleSpeech)
+        match self.runtime {
+            ModelRuntime::Gguf(_) => true,
+            ModelRuntime::AppleSpeech => false,
+            // Only the macOS engine runs remote models.
+            ModelRuntime::OpenAi(_) => cfg!(target_os = "macos"),
+        }
+    }
+
+    /// Whether audio leaves the Mac for this model.
+    pub const fn is_cloud(&self) -> bool {
+        matches!(self.runtime, ModelRuntime::OpenAi(_))
     }
 
     fn download_url(&self) -> Result<String> {
@@ -217,6 +248,7 @@ impl ModelDefinition {
     pub fn size_label(&self) -> String {
         match self.runtime {
             ModelRuntime::AppleSpeech => "Managed".into(),
+            ModelRuntime::OpenAi(_) => "Cloud".into(),
             ModelRuntime::Gguf(artifact) if artifact.bytes >= 1_000_000_000 => {
                 format!("{:.1} GB", artifact.bytes as f64 / 1_000_000_000.0)
             }
@@ -227,7 +259,7 @@ impl ModelDefinition {
     pub const fn download_bytes(&self) -> Option<u64> {
         match self.runtime {
             ModelRuntime::Gguf(artifact) => Some(artifact.bytes),
-            ModelRuntime::AppleSpeech => None,
+            ModelRuntime::AppleSpeech | ModelRuntime::OpenAi(_) => None,
         }
     }
 }
@@ -430,6 +462,39 @@ pub const MODELS: &[ModelDefinition] = &[
         supports_language_detection: false,
         supports_recognition_hints: false,
     },
+    // The prompt and keywords live in ~/.config/hex/openai.json, shared
+    // with captures, so Hex's recognition hints stay off.
+    ModelDefinition {
+        id: TranscriptionModelId::OpenAiLiveTranscribe,
+        name: "GPT Live Transcribe (OpenAI)",
+        realtime: "Streaming",
+        // Hex has not benchmarked it; no figure is better than a guess.
+        quality: "—",
+        quality_context: "OpenAI API",
+        coverage: "Many languages",
+        timestamps: "No timestamps",
+        streams: true,
+        runtime: ModelRuntime::OpenAi(OpenAiModel::Live),
+        languages: &["*"],
+        accepts_language_hint: true,
+        supports_language_detection: true,
+        supports_recognition_hints: false,
+    },
+    ModelDefinition {
+        id: TranscriptionModelId::OpenAiTranscribe,
+        name: "GPT Transcribe (OpenAI)",
+        realtime: "On release",
+        quality: "—",
+        quality_context: "OpenAI API",
+        coverage: "Many languages",
+        timestamps: "No timestamps",
+        streams: false,
+        runtime: ModelRuntime::OpenAi(OpenAiModel::File),
+        languages: &["*"],
+        accepts_language_hint: true,
+        supports_language_detection: true,
+        supports_recognition_hints: false,
+    },
 ];
 
 pub const AUTO_LANGUAGE: &str = "auto";
@@ -615,7 +680,7 @@ pub fn max_audio_chunk_samples(architecture: &str, max_audio_ms: i64) -> Option<
 
 pub fn model_path(model: &ModelDefinition) -> Result<PathBuf> {
     let ModelRuntime::Gguf(artifact) = model.runtime else {
-        bail!("{} is managed by macOS and has no model path", model.name);
+        bail!("{} is not a downloaded model and has no path", model.name);
     };
     Ok(models_dir()?.join(artifact.filename))
 }
@@ -631,6 +696,13 @@ pub fn is_installed(model: &ModelDefinition, language: &str) -> bool {
         ModelRuntime::AppleSpeech => crate::apple_speech::AppleSpeech::is_ready(language),
         #[cfg(not(target_os = "macos"))]
         ModelRuntime::AppleSpeech => false,
+        // Ready once the config parses and the key file is private and holds a key.
+        #[cfg(target_os = "macos")]
+        ModelRuntime::OpenAi(_) => crate::openai_transcription::load_config()
+            .and_then(|config| config.api_key())
+            .is_ok(),
+        #[cfg(not(target_os = "macos"))]
+        ModelRuntime::OpenAi(_) => false,
     }
 }
 
@@ -1089,10 +1161,17 @@ mod tests {
         // TDT checkpoints transcribe whole clips.
         let streaming = MODELS
             .iter()
-            .filter(|model| model.streams)
+            .filter(|model| model.streams && !model.is_cloud())
             .map(|model| model.id)
             .collect::<Vec<_>>();
         assert_eq!(streaming, [TranscriptionModelId::ParakeetUnifiedEnglish]);
+        // OpenAI's live model streams over the network instead.
+        let remote = MODELS
+            .iter()
+            .filter(|model| model.streams && model.is_cloud())
+            .map(|model| model.id)
+            .collect::<Vec<_>>();
+        assert_eq!(remote, [TranscriptionModelId::OpenAiLiveTranscribe]);
         let ModelRuntime::Gguf(artifact) = definition(streaming[0]).runtime else {
             panic!("a streaming model has a GGUF artifact");
         };
@@ -1116,12 +1195,66 @@ mod tests {
             (TranscriptionModelId::SenseVoiceSmall, "sense_voice_small"),
             (TranscriptionModelId::CohereTranscribe, "cohere_transcribe"),
             (TranscriptionModelId::AppleSpeech, "apple_speech"),
+            (
+                TranscriptionModelId::OpenAiLiveTranscribe,
+                "openai_gpt_live_transcribe",
+            ),
+            (
+                TranscriptionModelId::OpenAiTranscribe,
+                "openai_gpt_transcribe",
+            ),
         ] {
             assert_eq!(id.as_str(), name);
             assert_eq!(name.parse::<TranscriptionModelId>().unwrap(), id);
             assert_eq!(serde_json::to_value(id).unwrap(), name);
         }
         assert!("unknown".parse::<TranscriptionModelId>().is_err());
+    }
+
+    #[test]
+    fn openai_models_take_any_language_download_nothing_and_are_never_recommended() {
+        for id in [
+            TranscriptionModelId::OpenAiLiveTranscribe,
+            TranscriptionModelId::OpenAiTranscribe,
+        ] {
+            let model = definition(id);
+            assert!(model.is_cloud());
+            assert_eq!(model.available(), cfg!(target_os = "macos"));
+            assert_eq!(model.download_bytes(), None);
+            assert_eq!(model.size_label(), "Cloud");
+            assert!(model_path(model).is_err());
+            for language in ["en", "fil", AUTO_LANGUAGE] {
+                let selection = TranscriptionSelection {
+                    model: id,
+                    language: language.into(),
+                    recognition_hints: String::new(),
+                };
+                assert_eq!(validate(&selection).is_ok(), cfg!(target_os = "macos"));
+            }
+            // The prompt lives in openai.json, not Hex's hints.
+            assert!(
+                validate(&TranscriptionSelection {
+                    model: id,
+                    language: "en".into(),
+                    recognition_hints: "NixOS".into(),
+                })
+                .is_err()
+            );
+            for (language, _) in LANGUAGES {
+                assert!(
+                    choices_for_runtime(language)
+                        .iter()
+                        .all(|choice| !choice.model.is_cloud()),
+                    "{language}"
+                );
+            }
+        }
+        assert!(
+            MODELS
+                .iter()
+                .filter(|model| !model.is_cloud())
+                .all(|model| { !matches!(model.runtime, ModelRuntime::OpenAi(_)) })
+        );
     }
 
     #[test]

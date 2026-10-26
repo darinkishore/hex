@@ -337,8 +337,8 @@ const CAPTURE_KEYS: &[Key] = &[
     ),
     key(
         "capture.transcriber",
-        Kind::Choice(&["parakeet", "apple"]),
-        "What transcribes a capture's narration: Hex's loaded model or Apple's",
+        Kind::Choice(&["parakeet", "apple", "openai"]),
+        "What transcribes a capture's narration: Hex's loaded model, Apple's, or OpenAI's with acoustic word times",
     ),
     optional(
         "capture.folder",

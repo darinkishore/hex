@@ -1177,7 +1177,8 @@ impl Parakeet {
         let stream_run = parakeet.stream_run_options();
         let architecture = match definition.runtime {
             crate::transcription_models::ModelRuntime::Gguf(artifact) => artifact.architecture,
-            crate::transcription_models::ModelRuntime::AppleSpeech => "",
+            crate::transcription_models::ModelRuntime::AppleSpeech
+            | crate::transcription_models::ModelRuntime::OpenAi(_) => "",
         };
         parakeet.stream = parakeet.session.probe_stream(&stream_run, architecture);
         Ok(parakeet)

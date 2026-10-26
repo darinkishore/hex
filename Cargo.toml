@@ -85,7 +85,11 @@ realfft = "3.5.0"
 rmcp = { version = "3.5.1", default-features = false, features = ["server", "macros", "transport-io"] }
 screencapturekit = { version = "=11.0.0", features = ["macos_15_0"] }
 scrawl-capture = { path = "crates/capture", default-features = false, features = ["screen", "helper"], optional = true }
-tokio = { version = "1.53.1", features = ["rt", "io-std"] }
+tokio = { version = "1.53.1", features = ["rt", "io-std", "net", "time", "sync", "macros"] }
+# OpenAI Realtime transcription over the system's TLS and trust store.
+tokio-tungstenite = { version = "0.30.0", default-features = false, features = ["connect", "native-tls"] }
+futures-util = { version = "0.3.34", default-features = false, features = ["sink", "std"] }
+base64 = "0.22.1"
 unicode-normalization = "0.1.25"
 
 [target.'cfg(target_os = "linux")'.dependencies]

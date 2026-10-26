@@ -631,6 +631,8 @@ fn transcription_action(
         crate::transcription_models::ModelRuntime::AppleSpeech => {
             crate::transcription_models::is_installed(model, &selection.language)
         }
+        // `transcription_selection` refuses cloud models first.
+        crate::transcription_models::ModelRuntime::OpenAi(_) => false,
     };
     if !prepared {
         return RequestAction::Respond(HttpResponse::code(409, "model-not-ready"));
@@ -1123,7 +1125,12 @@ fn validate_selection(
         language,
         recognition_hints: String::new(),
     };
-    crate::transcription_models::validate(&selection).map_err(|_| "unsupported-model")?;
+    let model =
+        crate::transcription_models::validate(&selection).map_err(|_| "unsupported-model")?;
+    // The local API transcribes on this Mac; it never uploads a client's audio.
+    if model.is_cloud() {
+        return Err("unsupported-model");
+    }
     Ok(selection)
 }
 
@@ -1342,7 +1349,7 @@ fn model_infos(path: &str) -> std::result::Result<Vec<ModelInfo>, &'static str> 
     }
     Ok(crate::transcription_models::MODELS
         .iter()
-        .filter(|model| model.available())
+        .filter(|model| model.available() && !model.is_cloud())
         .map(|model| {
             let managed = matches!(
                 model.runtime,
@@ -2112,12 +2119,18 @@ mod tests {
         assert_eq!(capabilities["audioFormats"][0], "audio/wav");
         let models = request(document.port, Some(&document.token), "/models");
         let models: Vec<serde_json::Value> = serde_json::from_str(response_body(&models)).unwrap();
+        // Cloud models are never offered: the API transcribes on this Mac.
         assert_eq!(
             models.len(),
             crate::transcription_models::MODELS
                 .iter()
-                .filter(|model| model.available())
+                .filter(|model| model.available() && !model.is_cloud())
                 .count()
+        );
+        assert!(
+            models
+                .iter()
+                .all(|model| !model["id"].as_str().unwrap().starts_with("openai_"))
         );
         assert_eq!(models[0]["id"], "parakeet_unified_en");
         assert!(models[0]["downloadBytes"].is_number());
@@ -2523,6 +2536,16 @@ mod tests {
         assert!(
             transcription_selection("/transcriptions?model=parakeet_v2&language=auto").is_err()
         );
+    }
+
+    #[test]
+    fn cloud_models_are_refused_so_no_client_audio_leaves_the_mac() {
+        for model in ["openai_gpt_live_transcribe", "openai_gpt_transcribe"] {
+            assert_eq!(
+                transcription_selection(&format!("/transcriptions?model={model}&language=en")),
+                Err("unsupported-model")
+            );
+        }
     }
 
     #[test]

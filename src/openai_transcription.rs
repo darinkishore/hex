@@ -958,6 +958,72 @@ fn init_cli_logging() {
     };
 }
 
+/// Dictation's OpenAI model. Whole clips go to `gpt-transcribe`; with
+/// `gpt-live-transcribe` the engine also streams each capture to Realtime
+/// while the shortcut is held, and falls back to the whole clip.
+pub struct OpenAiTranscriber {
+    selection: crate::transcription_models::TranscriptionSelection,
+    model: crate::transcription_models::OpenAiModel,
+}
+
+impl OpenAiTranscriber {
+    /// Checks the config and key now, so choosing the model reports a
+    /// missing key instead of the first dictation.
+    pub fn load(
+        selection: &crate::transcription_models::TranscriptionSelection,
+        model: crate::transcription_models::OpenAiModel,
+    ) -> Result<Self> {
+        load_config()?.api_key()?;
+        Ok(Self {
+            selection: selection.clone(),
+            model,
+        })
+    }
+
+    pub fn matches_selection(
+        &self,
+        selection: &crate::transcription_models::TranscriptionSelection,
+    ) -> bool {
+        &self.selection == selection
+    }
+
+    pub fn streams(&self) -> bool {
+        self.model == crate::transcription_models::OpenAiModel::Live
+    }
+
+    pub fn realtime_settings(&self) -> Result<crate::openai_realtime::RealtimeSettings> {
+        let config = load_config()?;
+        let key = config.api_key()?;
+        Ok(crate::openai_realtime::RealtimeSettings {
+            config,
+            key,
+            languages: languages_for(&self.selection.language),
+        })
+    }
+
+    /// A whole 16 kHz clip with `gpt-transcribe`. The engine's job token,
+    /// when there is one, cancels it.
+    pub fn transcribe(&mut self, samples: &[f32]) -> Result<String> {
+        let config = load_config()?;
+        let key = config.api_key()?;
+        let pcm: Vec<i16> = samples.iter().copied().map(pcm16).collect();
+        let job = crate::gguf_session::job_cancel();
+        let cancelled = || {
+            job.as_ref()
+                .is_some_and(transcribe_cpp::CancelToken::is_cancelled)
+        };
+        let languages = languages_for(&self.selection.language);
+        let started = Instant::now();
+        let text = transcribe_text(&config, &key, &pcm, &languages, &cancelled)?;
+        tracing::info!(
+            audio_ms = pcm.len() / 16,
+            elapsed_ms = started.elapsed().as_millis() as u64,
+            "OpenAI transcribed the clip"
+        );
+        Ok(text)
+    }
+}
+
 /// The languages a dictation selection asks for: none when detecting.
 pub fn languages_for(language: &str) -> Vec<String> {
     if language == crate::transcription_models::AUTO_LANGUAGE {

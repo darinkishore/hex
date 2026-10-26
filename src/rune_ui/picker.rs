@@ -335,9 +335,13 @@ fn model_card(
         && matches!(model.runtime, ModelRuntime::Gguf(_))
         && ui.settings.transcription.model != model.id;
     let confirming = ui.picker.deletion == Some(model.id);
-    let metadata = model
-        .streams
-        .then(|| tr("Transcribes while you speak on a GPU"))
+    let delivery = match (model.is_cloud(), model.streams) {
+        (true, true) => Some(tr("Streams to OpenAI while you speak")),
+        (true, false) => Some(tr("Sends each clip to OpenAI")),
+        (false, true) => Some(tr("Transcribes while you speak on a GPU")),
+        (false, false) => None,
+    };
+    let metadata = delivery
         .into_iter()
         .chain(
             (model.coverage != transcription_models::language_name(language))
@@ -392,7 +396,8 @@ fn model_card(
             actions = actions.child(button(
                 p,
                 "choose-model",
-                if *installed {
+                // A cloud model downloads nothing; choosing it checks the key.
+                if *installed || model.is_cloud() {
                     tr("Use")
                 } else {
                     tr("Download")

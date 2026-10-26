@@ -274,6 +274,7 @@ impl Transcriber for ChosenTranscriber {
             crate::app_settings::CaptureTranscriber::Apple => {
                 AppleTranscriber::default().transcribe(audio)
             }
+            crate::app_settings::CaptureTranscriber::OpenAi => OpenAiTranscriber.transcribe(audio),
         }
     }
 }
@@ -298,6 +299,10 @@ impl Transcriber for HexTranscriber {
                 .map_err(|error| anyhow::anyhow!(error))?
         };
         let (_, selection) = crate::app_settings::transcription_selection();
+        // Dictating with OpenAI: its own word-timed path, never the engine.
+        if crate::transcription_models::definition(selection.model).is_cloud() {
+            return OpenAiTranscriber.transcribe(audio);
+        }
         let transcript = crate::parakeet::transcribe_with_words(engine, &selection, samples)
             .map_err(|error| anyhow::anyhow!("{error:#}"))?;
         Ok(Some(TranscriptData {
@@ -305,6 +310,60 @@ impl Transcriber for HexTranscriber {
             model: Some(selection.model.as_str().into()),
             text: transcript.text,
             words: corrected_words(transcript.words, word_lag(selection.model)),
+            ..TranscriptData::default()
+        }))
+    }
+}
+
+/// OpenAI's `gpt-transcribe` with WhisperX's acoustic word timing, as
+/// `hex transcribe --scrawl` gives Scrawl.app: every word measured, or the
+/// capture keeps its audio and says why it has no transcript.
+struct OpenAiTranscriber;
+
+impl Transcriber for OpenAiTranscriber {
+    fn transcribe(&self, audio: &RecordedAudio) -> anyhow::Result<Option<TranscriptData>> {
+        let samples = if audio.sample_rate == SAMPLE_RATE {
+            audio.samples.clone()
+        } else {
+            crate::dictation::try_resample_for_parakeet(&audio.samples, audio.sample_rate)
+                .map_err(|error| anyhow::anyhow!(error))?
+        };
+        let pcm: Vec<i16> = samples
+            .into_iter()
+            .map(crate::openai_transcription::pcm16)
+            .collect();
+        let run = || {
+            let config = crate::openai_transcription::load_config()?;
+            let key = config.api_key()?;
+            let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+            let never = AtomicBool::new(false);
+            crate::openai_transcription::transcribe_with_words(
+                &config,
+                &key,
+                &pcm,
+                || crate::forced_alignment::Aligner::load(root, &never),
+                &crate::process_exit::quitting,
+            )
+        };
+        let transcript = run().map_err(|error| anyhow::anyhow!("{error:#}"))?;
+        Ok(Some(TranscriptData {
+            source: format!(
+                "openai:{}+{}",
+                crate::openai_transcription::FILE_MODEL,
+                crate::forced_alignment::TIMING
+            ),
+            model: Some(crate::openai_transcription::FILE_MODEL.into()),
+            text: transcript.text,
+            words: transcript
+                .words
+                .iter()
+                .map(|word| WordTiming {
+                    t0: word.start_ms(),
+                    t1: word.end_ms(),
+                    text: word.text.clone(),
+                })
+                .collect(),
+            estimated: false,
             ..TranscriptData::default()
         }))
     }

@@ -390,6 +390,18 @@ pub fn root() -> Result<PathBuf> {
     Ok(crate::app_paths::support_dir()?.join("meetings"))
 }
 
+/// Meetings record other people and transcribe on this Mac: a dictation
+/// model that uploads audio (OpenAI) is refused rather than followed.
+fn refuse_cloud_model(model: &crate::transcription_models::ModelDefinition) -> Result<()> {
+    if model.is_cloud() {
+        return Err(eyre!(
+            "Meetings transcribe on this Mac, and {} sends audio to OpenAI. Choose a local speech model to record meetings.",
+            model.name
+        ));
+    }
+    Ok(())
+}
+
 pub fn record(
     start: MeetingStart,
     shutdown: &AtomicBool,
@@ -397,6 +409,7 @@ pub fn record(
 ) -> Result<MeetingManifest> {
     let (_, transcription_selection) = crate::app_settings::transcription_selection();
     let transcription_model = crate::transcription_models::validate(&transcription_selection)?;
+    refuse_cloud_model(transcription_model)?;
     if !crate::transcription_models::is_installed(
         transcription_model,
         &transcription_selection.language,
@@ -1034,6 +1047,7 @@ pub fn finish_pending(id: &str) -> Result<Option<MeetingManifest>> {
     }
     let (_, selection) = crate::app_settings::transcription_selection();
     let model = crate::transcription_models::validate(&selection)?;
+    refuse_cloud_model(model)?;
     if !crate::transcription_models::is_installed(model, &selection.language) {
         return Err(eyre!("{} is not installed", model.name));
     }
@@ -1276,6 +1290,7 @@ fn rename_meeting(directory: &Path, title: &str) -> Result<MeetingManifest> {
 pub fn transcribe_meeting(id: &str) -> Result<MeetingManifest> {
     let (_, selection) = crate::app_settings::transcription_selection();
     let model = crate::transcription_models::validate(&selection)?;
+    refuse_cloud_model(model)?;
     if !crate::transcription_models::is_installed(model, &selection.language) {
         return Err(eyre!("{} is not installed", model.name));
     }

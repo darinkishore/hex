@@ -590,9 +590,17 @@ impl Runtime {
             transcription: DesktopTranscriptionSnapshot {
                 downloaded_bytes: preparation.downloaded_bytes,
                 error: preparation.error.clone(),
-                preparation_stage: preparation
-                    .model
-                    .map(|_| ModelPreparationStage::Downloading),
+                // A model with nothing to download (OpenAI) only loads.
+                preparation_stage: preparation.model.map(|model| {
+                    if crate::transcription_models::definition(model)
+                        .download_bytes()
+                        .is_some()
+                    {
+                        ModelPreparationStage::Downloading
+                    } else {
+                        ModelPreparationStage::Loading
+                    }
+                }),
                 selection: self.settings.transcription.clone(),
                 preparing: preparation.model,
             },
