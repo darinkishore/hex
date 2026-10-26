@@ -1,0 +1,406 @@
+{
+ "samples": 378162,
+ "segments": [
+  {
+   "start": 0.0,
+   "end": 5.7285625,
+   "text": "Open the settings window, then click the Scrawl pane. The recording should start within two seconds.",
+   "emissions": "a.seg0.f32",
+   "frames": 286
+  },
+  {
+   "start": 5.7285625,
+   "end": 15.8521875,
+   "text": "Hex sends the clip to OpenAI's G P T transcribe model. It costs about 0.45 cents per minute, and the word timings come from wav2vec2.",
+   "emissions": "b.seg0.f32",
+   "frames": 505
+  },
+  {
+   "start": 15.8521875,
+   "end": 23.635125,
+   "text": "Mr. Smith arrived at 3 p.m. on October 26th. Don't forget: the API key lives in dot config slash open A I.",
+   "emissions": "c.seg0.f32",
+   "frames": 388
+  }
+ ],
+ "words": [
+  {
+   "text": "Open",
+   "start": 0.08,
+   "end": 0.32,
+   "score": 0.763
+  },
+  {
+   "text": "the",
+   "start": 0.361,
+   "end": 0.441,
+   "score": 0.833
+  },
+  {
+   "text": "settings",
+   "start": 0.461,
+   "end": 0.841,
+   "score": 0.83
+  },
+  {
+   "text": "window,",
+   "start": 0.901,
+   "end": 1.242,
+   "score": 0.948
+  },
+  {
+   "text": "then",
+   "start": 1.522,
+   "end": 1.703,
+   "score": 0.767
+  },
+  {
+   "text": "click",
+   "start": 1.783,
+   "end": 2.023,
+   "score": 0.937
+  },
+  {
+   "text": "the",
+   "start": 2.063,
+   "end": 2.163,
+   "score": 0.692
+  },
+  {
+   "text": "Scrawl",
+   "start": 2.183,
+   "end": 2.524,
+   "score": 0.836
+  },
+  {
+   "text": "pane.",
+   "start": 2.564,
+   "end": 2.904,
+   "score": 0.906
+  },
+  {
+   "text": "The",
+   "start": 3.205,
+   "end": 3.325,
+   "score": 0.868
+  },
+  {
+   "text": "recording",
+   "start": 3.365,
+   "end": 3.866,
+   "score": 0.88
+  },
+  {
+   "text": "should",
+   "start": 3.906,
+   "end": 4.086,
+   "score": 0.916
+  },
+  {
+   "text": "start",
+   "start": 4.126,
+   "end": 4.407,
+   "score": 0.805
+  },
+  {
+   "text": "within",
+   "start": 4.447,
+   "end": 4.687,
+   "score": 0.862
+  },
+  {
+   "text": "two",
+   "start": 4.747,
+   "end": 4.927,
+   "score": 0.897
+  },
+  {
+   "text": "seconds.",
+   "start": 4.987,
+   "end": 5.408,
+   "score": 0.882
+  },
+  {
+   "text": "Hex",
+   "start": 5.769,
+   "end": 6.009,
+   "score": 0.822
+  },
+  {
+   "text": "sends",
+   "start": 6.069,
+   "end": 6.35,
+   "score": 0.863
+  },
+  {
+   "text": "the",
+   "start": 6.39,
+   "end": 6.47,
+   "score": 0.985
+  },
+  {
+   "text": "clip",
+   "start": 6.51,
+   "end": 6.751,
+   "score": 0.902
+  },
+  {
+   "text": "to",
+   "start": 6.791,
+   "end": 6.871,
+   "score": 0.7
+  },
+  {
+   "text": "OpenAI's",
+   "start": 6.931,
+   "end": 7.493,
+   "score": 0.823
+  },
+  {
+   "text": "G",
+   "start": 7.533,
+   "end": 7.713,
+   "score": 0.981
+  },
+  {
+   "text": "P",
+   "start": 7.773,
+   "end": 7.974,
+   "score": 0.994
+  },
+  {
+   "text": "T",
+   "start": 8.034,
+   "end": 8.214,
+   "score": 0.973
+  },
+  {
+   "text": "transcribe",
+   "start": 8.275,
+   "end": 8.956,
+   "score": 0.934
+  },
+  {
+   "text": "model.",
+   "start": 8.996,
+   "end": 9.317,
+   "score": 0.877
+  },
+  {
+   "text": "It",
+   "start": 9.678,
+   "end": 9.738,
+   "score": 0.978
+  },
+  {
+   "text": "costs",
+   "start": 9.818,
+   "end": 10.159,
+   "score": 0.858
+  },
+  {
+   "text": "about",
+   "start": 10.239,
+   "end": 10.5,
+   "score": 0.699
+  },
+  {
+   "text": "0.45",
+   "start": 10.52,
+   "end": 11.221,
+   "score": 0.736
+  },
+  {
+   "text": "cents",
+   "start": 11.883,
+   "end": 12.144,
+   "score": 0.724
+  },
+  {
+   "text": "per",
+   "start": 12.204,
+   "end": 12.324,
+   "score": 0.996
+  },
+  {
+   "text": "minute,",
+   "start": 12.364,
+   "end": 12.665,
+   "score": 0.868
+  },
+  {
+   "text": "and",
+   "start": 12.945,
+   "end": 13.046,
+   "score": 0.748
+  },
+  {
+   "text": "the",
+   "start": 13.066,
+   "end": 13.166,
+   "score": 0.828
+  },
+  {
+   "text": "word",
+   "start": 13.206,
+   "end": 13.447,
+   "score": 0.841
+  },
+  {
+   "text": "timings",
+   "start": 13.507,
+   "end": 13.928,
+   "score": 0.862
+  },
+  {
+   "text": "come",
+   "start": 14.008,
+   "end": 14.208,
+   "score": 0.857
+  },
+  {
+   "text": "from",
+   "start": 14.248,
+   "end": 14.389,
+   "score": 0.669
+  },
+  {
+   "text": "wav2vec2.",
+   "start": 14.449,
+   "end": 15.311,
+   "score": 0.84
+  },
+  {
+   "text": "Mr.",
+   "start": 15.892,
+   "end": 16.213,
+   "score": 0.804
+  },
+  {
+   "text": "Smith",
+   "start": 16.273,
+   "end": 16.494,
+   "score": 0.892
+  },
+  {
+   "text": "arrived",
+   "start": 16.534,
+   "end": 16.875,
+   "score": 0.931
+  },
+  {
+   "text": "at",
+   "start": 16.915,
+   "end": 16.955,
+   "score": 0.988
+  },
+  {
+   "text": "3",
+   "start": 16.996,
+   "end": 17.216,
+   "score": 0.324
+  },
+  {
+   "text": "p.m.",
+   "start": 17.256,
+   "end": 17.597,
+   "score": 0.848
+  },
+  {
+   "text": "on",
+   "start": 17.658,
+   "end": 17.758,
+   "score": 0.771
+  },
+  {
+   "text": "October",
+   "start": 17.818,
+   "end": 18.279,
+   "score": 0.918
+  },
+  {
+   "text": "26th.",
+   "start": 18.34,
+   "end": 19.001,
+   "score": 0.723
+  },
+  {
+   "text": "Don't",
+   "start": 19.423,
+   "end": 19.623,
+   "score": 0.927
+  },
+  {
+   "text": "forget:",
+   "start": 19.683,
+   "end": 20.065,
+   "score": 0.88
+  },
+  {
+   "text": "the",
+   "start": 20.345,
+   "end": 20.446,
+   "score": 0.897
+  },
+  {
+   "text": "API",
+   "start": 20.526,
+   "end": 20.987,
+   "score": 0.799
+  },
+  {
+   "text": "key",
+   "start": 21.027,
+   "end": 21.188,
+   "score": 0.845
+  },
+  {
+   "text": "lives",
+   "start": 21.248,
+   "end": 21.449,
+   "score": 0.951
+  },
+  {
+   "text": "in",
+   "start": 21.509,
+   "end": 21.589,
+   "score": 0.845
+  },
+  {
+   "text": "dot",
+   "start": 21.609,
+   "end": 21.85,
+   "score": 0.722
+  },
+  {
+   "text": "config",
+   "start": 21.87,
+   "end": 22.311,
+   "score": 0.688
+  },
+  {
+   "text": "slash",
+   "start": 22.331,
+   "end": 22.652,
+   "score": 0.896
+  },
+  {
+   "text": "open",
+   "start": 22.732,
+   "end": 22.973,
+   "score": 0.883
+  },
+  {
+   "text": "A",
+   "start": 23.013,
+   "end": 23.134,
+   "score": 0.832
+  },
+  {
+   "text": "I.",
+   "start": 23.274,
+   "end": 23.314,
+   "score": 0.258
+  }
+ ]
+}

@@ -53,6 +53,8 @@ mod experiments;
 #[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
 mod feedback;
 mod file_dialog;
+#[cfg(target_os = "macos")]
+mod forced_alignment;
 #[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
 mod gguf_session;
 #[cfg_attr(any(target_os = "linux", target_os = "windows"), allow(dead_code))]
@@ -114,6 +116,8 @@ mod moonshine;
 mod moonshine_lab;
 #[cfg_attr(any(target_os = "linux", target_os = "windows"), allow(dead_code))]
 mod onboarding;
+#[cfg(target_os = "macos")]
+mod onnx_runtime;
 mod opencode_catalog;
 #[cfg(target_os = "macos")]
 mod parakeet;

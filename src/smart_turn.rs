@@ -47,7 +47,6 @@ const MODEL_FILENAME: &str = "smart-turn-v3.2-cpu.onnx";
 const MODEL_URL: &str = "https://huggingface.co/pipecat-ai/smart-turn-v3/resolve/f766f81d3cfdf7737ac64aad813d91bbfd56bf93/smart-turn-v3.2-cpu.onnx";
 const MODEL_BYTES: u64 = 8_679_182;
 const MODEL_SHA256: &str = "2bb026316b14a660486a75b1733cd3fbab8c2fd0314dc9af7be49f8cca967e4f";
-const RUNTIME_LIBRARY: &str = "libonnxruntime.1.23.2.dylib";
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Settings {
@@ -817,7 +816,7 @@ impl Predictor for OnnxPredictor {
 
 fn load_onnx(project_root: &Path, closed: &AtomicBool) -> Result<Box<dyn Predictor>> {
     // Without the runtime the model is useless, so it isn't downloaded.
-    init_runtime(&find_runtime(project_root)?)?;
+    crate::onnx_runtime::init(project_root)?;
     let model = install_model(closed)?;
     let builder_error = |error: ort::Error<ort::session::builder::SessionBuilder>| eyre!("{error}");
     let session = ort::session::Session::builder()
@@ -835,46 +834,6 @@ fn load_onnx(project_root: &Path, closed: &AtomicBool) -> Result<Box<dyn Predict
         .commit_from_file(&model)
         .map_err(|error| eyre!("could not load {}: {error}", model.display()))?;
     Ok(Box::new(OnnxPredictor { session }))
-}
-
-/// Loads the ONNX Runtime library once per process. Moonshine links the
-/// same file, so loading it again shares one copy.
-fn init_runtime(library: &Path) -> Result<()> {
-    static RUNTIME: OnceLock<Result<(), String>> = OnceLock::new();
-    RUNTIME
-        .get_or_init(|| {
-            ort::init_from(library)
-                .map(|environment| {
-                    let _ = environment.with_name("hex-smart-turn").commit();
-                })
-                .map_err(|error| format!("could not load {}: {error}", library.display()))
-        })
-        .clone()
-        .map_err(|error| eyre!(error))
-}
-
-fn find_runtime(project_root: &Path) -> Result<PathBuf> {
-    if let Ok(executable) = std::env::current_exe()
-        && let Some(contents) = executable.parent().and_then(Path::parent)
-    {
-        let bundled = contents.join("Frameworks").join(RUNTIME_LIBRARY);
-        if bundled.exists() {
-            return Ok(bundled);
-        }
-    }
-    let lib = project_root.join(".venv/lib");
-    if let Ok(entries) = fs::read_dir(&lib) {
-        for python in entries.flatten() {
-            let candidate = python
-                .path()
-                .join("site-packages/moonshine_voice")
-                .join(RUNTIME_LIBRARY);
-            if candidate.exists() {
-                return Ok(candidate);
-            }
-        }
-    }
-    bail!("{RUNTIME_LIBRARY} not found; run ./scripts/setup.sh")
 }
 
 /// The pinned model in Application Support, downloaded and verified on

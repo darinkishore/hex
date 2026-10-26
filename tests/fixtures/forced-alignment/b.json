@@ -1,0 +1,164 @@
+{
+ "samples": 161978,
+ "segments": [
+  {
+   "start": 0.0,
+   "end": 10.12365625,
+   "text": "Hex sends the clip to OpenAI's G P T transcribe model. It costs about 0.45 cents per minute, and the word timings come from wav2vec2.",
+   "emissions": "b.seg0.f32",
+   "frames": 505
+  }
+ ],
+ "words": [
+  {
+   "text": "Hex",
+   "start": 0.04,
+   "end": 0.281,
+   "score": 0.822
+  },
+  {
+   "text": "sends",
+   "start": 0.341,
+   "end": 0.621,
+   "score": 0.863
+  },
+  {
+   "text": "the",
+   "start": 0.662,
+   "end": 0.742,
+   "score": 0.985
+  },
+  {
+   "text": "clip",
+   "start": 0.782,
+   "end": 1.022,
+   "score": 0.902
+  },
+  {
+   "text": "to",
+   "start": 1.062,
+   "end": 1.143,
+   "score": 0.7
+  },
+  {
+   "text": "OpenAI's",
+   "start": 1.203,
+   "end": 1.764,
+   "score": 0.823
+  },
+  {
+   "text": "G",
+   "start": 1.804,
+   "end": 1.985,
+   "score": 0.981
+  },
+  {
+   "text": "P",
+   "start": 2.045,
+   "end": 2.245,
+   "score": 0.994
+  },
+  {
+   "text": "T",
+   "start": 2.305,
+   "end": 2.486,
+   "score": 0.973
+  },
+  {
+   "text": "transcribe",
+   "start": 2.546,
+   "end": 3.228,
+   "score": 0.934
+  },
+  {
+   "text": "model.",
+   "start": 3.268,
+   "end": 3.588,
+   "score": 0.877
+  },
+  {
+   "text": "It",
+   "start": 3.949,
+   "end": 4.009,
+   "score": 0.978
+  },
+  {
+   "text": "costs",
+   "start": 4.09,
+   "end": 4.43,
+   "score": 0.858
+  },
+  {
+   "text": "about",
+   "start": 4.511,
+   "end": 4.771,
+   "score": 0.699
+  },
+  {
+   "text": "0.45",
+   "start": 4.791,
+   "end": 5.493,
+   "score": 0.736
+  },
+  {
+   "text": "cents",
+   "start": 6.154,
+   "end": 6.415,
+   "score": 0.724
+  },
+  {
+   "text": "per",
+   "start": 6.475,
+   "end": 6.595,
+   "score": 0.996
+  },
+  {
+   "text": "minute,",
+   "start": 6.636,
+   "end": 6.936,
+   "score": 0.868
+  },
+  {
+   "text": "and",
+   "start": 7.217,
+   "end": 7.317,
+   "score": 0.748
+  },
+  {
+   "text": "the",
+   "start": 7.337,
+   "end": 7.437,
+   "score": 0.828
+  },
+  {
+   "text": "word",
+   "start": 7.477,
+   "end": 7.718,
+   "score": 0.841
+  },
+  {
+   "text": "timings",
+   "start": 7.778,
+   "end": 8.199,
+   "score": 0.862
+  },
+  {
+   "text": "come",
+   "start": 8.279,
+   "end": 8.48,
+   "score": 0.857
+  },
+  {
+   "text": "from",
+   "start": 8.52,
+   "end": 8.66,
+   "score": 0.669
+  },
+  {
+   "text": "wav2vec2.",
+   "start": 8.72,
+   "end": 9.582,
+   "score": 0.84
+  }
+ ]
+}
