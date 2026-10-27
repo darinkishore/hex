@@ -111,14 +111,17 @@ impl RealtimeStream {
         let thread = thread::Builder::new()
             .name("openai-realtime".into())
             .spawn(move || {
-                let outcome = tokio::runtime::Builder::new_current_thread()
+                let outcome = match tokio::runtime::Builder::new_current_thread()
                     .enable_all()
                     .build()
-                    .map_err(|error| format!("could not start the Realtime runtime: {error}"))
-                    .and_then(|runtime| runtime.block_on(run(settings, audio_rx, stop_rx)));
-                if let Err(reason) = &outcome {
-                    tracing::warn!(%reason, "OpenAI Realtime stream ended without a transcript");
-                }
+                {
+                    Ok(runtime) => runtime.block_on(run(settings, audio_rx, stop_rx)),
+                    Err(error) => {
+                        let reason = format!("could not start the Realtime runtime: {error}");
+                        tracing::warn!(%reason, "OpenAI Realtime stream ended without a transcript");
+                        Err(reason)
+                    }
+                };
                 let _ = result_tx.send(outcome);
             });
         let (thread, ended) = match thread {
@@ -209,8 +212,18 @@ async fn run(
 ) -> Result<String, String> {
     tokio::select! {
         biased;
-        _ = stop => Err("the Realtime stream was stopped".into()),
-        outcome = session(&settings, audio) => outcome,
+        // Hex let go of the stream: a short tap, a chord, Escape, or a
+        // finish already settled from the whole clip. Not a failure.
+        _ = stop => {
+            tracing::info!("OpenAI Realtime stream stopped by Hex");
+            Err("the Realtime stream was stopped".into())
+        }
+        outcome = session(&settings, audio) => {
+            if let Err(reason) = &outcome {
+                tracing::warn!(%reason, "OpenAI Realtime stream ended without a transcript");
+            }
+            outcome
+        }
     }
 }
 

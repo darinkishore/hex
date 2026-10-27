@@ -45,7 +45,8 @@ GPT Live Transcribe, shortcut held past 300 ms   // openai.dictation-live
 ├── Release -> remaining frames -> input_audio_buffer.commit
 │   -> the committed item's final transcript (a final may precede its ack)
 └── Failure, refusal, or no final within 10 s -> the whole clip with gpt-transcribe
-    (source=fallback); short taps and Escape close the session
+    (source=fallback), logged as a warning; short taps, chords, and Escape
+    close the session, logged as stopped by Hex rather than as a failure
 
 GPT Transcribe, or any whole-clip run          // openai.dictation-file
 └── Release -> the clip as recordings are sent (below), without word timing
@@ -125,7 +126,10 @@ Nothing leaves the Mac unless chosen           // openai.privacy
 │   -> refused: "Meetings transcribe on this Mac …"; choose a local model
 ├── Local API (/models, /transcriptions; Scrawl's `hex` transcriber, the SDK)
 │   -> cloud models unlisted and refused (unsupported-model)
-└── Segment timing for an OpenAI model outside captures -> an error, no upload
+├── Segment timing for an OpenAI model outside captures -> an error, no upload
+└── Setup's welcome says the voice is sent to OpenAI, never "on this Mac",
+    while an OpenAI model is selected; its model row offers "Use", not
+    "Download", and a bad key or openai.json is named as the failure
 ```
 
 Sources: [openai_transcription.rs](../../src/openai_transcription.rs),
@@ -134,9 +138,10 @@ Sources: [openai_transcription.rs](../../src/openai_transcription.rs),
 [onnx_runtime.rs](../../src/onnx_runtime.rs), the remote stream and its
 deadline in [transcription_engine.rs](../../src/transcription_engine.rs), the
 catalog in [transcription_models.rs](../../src/transcription_models.rs),
-`OpenAiTranscriber` in [capture_host.rs](../../src/capture_host.rs), and the
+`OpenAiTranscriber` in [capture_host.rs](../../src/capture_host.rs), the
 refusals in [meeting.rs](../../src/meeting.rs) and
-[local_api.rs](../../src/local_api.rs).
+[local_api.rs](../../src/local_api.rs), and setup's copy in
+[rune_ui/onboarding.rs](../../src/rune_ui/onboarding.rs).
 
 Checks:
 
@@ -165,7 +170,8 @@ Checks:
 - Engine: `a_remote_stream_gets_the_longer_finish_deadline`. Catalog:
   `openai_models_take_any_language_download_nothing_and_are_never_recommended`.
   Refusals: `cloud_models_are_refused_so_no_client_audio_leaves_the_mac`,
-  `meetings_refuse_a_dictation_model_that_uploads_audio`. Import:
+  `meetings_refuse_a_dictation_model_that_uploads_audio`,
+  `the_welcome_says_an_openai_model_sends_the_voice_to_openai`. Import:
   `scrawls_transcriber_imports_as_the_matching_capture_transcriber`.
 
 **Observed 2026-10-26 (echo, Mac Studio):** on Dusk's own torch emissions the

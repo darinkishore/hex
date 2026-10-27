@@ -414,6 +414,27 @@ fn title(p: Paint, title: &str, body: Option<&str>) -> El {
         }))
 }
 
+/// True when the selected dictation model sends the voice to OpenAI.
+fn cloud_model(selection: &crate::transcription_models::TranscriptionSelection) -> bool {
+    crate::transcription_models::validate(selection).is_ok_and(|model| model.is_cloud())
+}
+
+/// Where the welcome says the voice is transcribed; never "on this Mac"
+/// for a model that uploads it.
+fn welcome_body(os: Os, cloud: bool) -> &'static str {
+    match (os, cloud) {
+        (Os::Macos, true) => tr(
+            "Hold a key, say what you mean, and Hex types it wherever your cursor is. Your voice is sent to OpenAI to be transcribed.",
+        ),
+        (Os::Macos, false) => tr(
+            "Hold a key, say what you mean, and Hex types it wherever your cursor is. Your voice is transcribed on this Mac.",
+        ),
+        _ => tr(
+            "Hold a key, say what you mean, and Hex types it wherever your cursor is. Your voice is transcribed on this computer.",
+        ),
+    }
+}
+
 fn welcome(ui: &Ui, p: Paint) -> El {
     col()
         .key("welcome")
@@ -422,11 +443,10 @@ fn welcome(ui: &Ui, p: Paint) -> El {
         .child(title(
             p,
             tr("Welcome to Hex"),
-            Some(if ui.platform.caps.os == Os::Macos {
-                tr("Hold a key, say what you mean, and Hex types it wherever your cursor is. Your voice is transcribed on this Mac.")
-            } else {
-                tr("Hold a key, say what you mean, and Hex types it wherever your cursor is. Your voice is transcribed on this computer.")
-            }),
+            Some(welcome_body(
+                ui.platform.caps.os,
+                cloud_model(&ui.settings.transcription),
+            )),
         ))
 }
 
@@ -514,6 +534,10 @@ fn setup_row(ui: &Ui, p: Paint, row: Row) -> El {
             &glyphs::SPARKLE,
             tr("Speech model"),
             match (row.status, model) {
+                (ItemStatus::Failed, Some(model)) if model.is_cloud() => {
+                    tr("Hex could not read your OpenAI key or settings. Fix them and try again.")
+                        .into()
+                }
                 (ItemStatus::Failed, _) => {
                     tr("The download stopped. Check your connection and try again.").into()
                 }
@@ -539,6 +563,10 @@ fn setup_row(ui: &Ui, p: Paint, row: Row) -> El {
                 .w(160.0),
             ItemStatus::Failed => {
                 button(p, "setup-grant", tr("Retry"), kind, move |ui, _| grant(ui))
+            }
+            // A cloud model downloads nothing; choosing it checks the key.
+            _ if cloud_model(&ui.settings.transcription) => {
+                button(p, "setup-grant", tr("Use"), kind, move |ui, _| grant(ui))
             }
             _ => button(p, "setup-grant", tr("Download"), kind, move |ui, _| {
                 grant(ui)
@@ -631,7 +659,11 @@ fn practice_hint(ui: &Ui, p: Paint, view: &View, shortcut: &str) -> El {
     }
     if !view.dictation_ready {
         return line.child(hint(
-            tr("Hex starts listening once the speech model has downloaded."),
+            if cloud_model(&ui.settings.transcription) {
+                tr("Hex starts listening once it can read your OpenAI key and settings.")
+            } else {
+                tr("Hex starts listening once the speech model has downloaded.")
+            },
             p.faint(),
         ));
     }
@@ -960,6 +992,30 @@ pub(super) fn mac_fixture(ui: &mut Ui, state: MacStep) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The welcome never claims an OpenAI model transcribes on this Mac.
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn the_welcome_says_an_openai_model_sends_the_voice_to_openai() {
+        use crate::transcription_models::{TranscriptionModelId, TranscriptionSelection};
+        let local = TranscriptionSelection::default();
+        assert!(!cloud_model(&local));
+        assert!(welcome_body(Os::Macos, cloud_model(&local)).ends_with("on this Mac."));
+        for model in [
+            TranscriptionModelId::OpenAiLiveTranscribe,
+            TranscriptionModelId::OpenAiTranscribe,
+        ] {
+            let selection = TranscriptionSelection {
+                model,
+                ..TranscriptionSelection::default()
+            };
+            assert!(cloud_model(&selection), "{model:?}");
+            let body = welcome_body(Os::Macos, cloud_model(&selection));
+            assert!(body.ends_with("Your voice is sent to OpenAI to be transcribed."));
+            assert!(!body.contains("on this Mac"));
+        }
+        assert!(welcome_body(Os::Linux, false).ends_with("on this computer."));
+    }
 
     #[test]
     fn try_it_focuses_the_practice_field_until_the_dictation_lands() {
